@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Leaderboard</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding: 20px; background:#f7f9fc; color:#111; }
+  .card { background:white; border-radius:12px; padding:18px; box-shadow: 0 6px 20px rgba(20,30,40,0.06); max-width:900px; margin:auto; }
+  h1 { margin:0 0 10px 0; font-size:1.6rem; }
+  table { width:100%; border-collapse: collapse; margin-top:12px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom: 1px solid #eee; }
+  th { color:#555; font-size:0.9rem; }
+  td.score { font-weight:700; width:120px; text-align:right; }
+  .muted { color:#777; font-size:0.9rem; }
+  .controls { display:flex; gap:8px; align-items:center; margin-top:10px; }
+  .small { font-size:0.85rem; padding:6px 8px; border-radius:8px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Leaderboard</h1>
+    <div class="controls">
+      <div class="muted" id="lastUpdated">—</div>
+      <button id="refreshBtn" class="small">Refresh</button>
+      <label class="muted" style="margin-left:auto;">
+        Show top <select id="limit">
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="all" selected>All</option>
+        </select>
+      </label>
+    </div>
+
+    <table id="leaderboard">
+      <thead>
+        <tr><th>Rank</th><th>Name</th><th class="score">Score</th><th>Timestamp (UTC)</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx-U8zgH9hAyBd9WGHI3tweqzCG6Lp8AKlDTbZv6aZbFvChJRMPu25EbQFbVH7_aObp_g/exec"; // <<-- put your web app URL here
+
+const $ = sel => document.querySelector(sel);
+const tbody = $("#leaderboard tbody");
+const lastUpdated = $("#lastUpdated");
+const limitSelect = $("#limit");
+
+async function fetchLeaderboard() {
+  lastUpdated.textContent = "Loading...";
+  try {
+    const res = await fetch(WEB_APP_URL);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Bad response");
+    let rows = data.rows || [];
+
+    // Normalize row values
+    rows = rows.map(r => ({
+      name: r.name || "",
+      score: (typeof r.score === "number") ? r.score : (isFinite(Number(r.score)) ? Number(r.score) : 0),
+      timestamp: r.timestamp || ""
+    }));
+
+    // Sort by score DESC, then timestamp ASC (newer at top if same score)
+    rows.sort((a,b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      // fall back to compare times (newer first)
+      return new Date(b.timestamp) - new Date(a.timestamp);
+    });
+
+    // Apply limit
+    const limit = limitSelect.value === "all" ? rows.length : Number(limitSelect.value);
+    const shown = rows.slice(0, limit);
+
+    // Populate table
+    tbody.innerHTML = "";
+    shown.forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(r.name)}</td><td class="score">${r.score}</td><td>${formatDate(r.timestamp)}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    lastUpdated.textContent = `Updated: ${new Date().toLocaleString()} (local) — ${rows.length} total`;
+  } catch (err) {
+    console.error(err);
+    lastUpdated.textContent = "Error loading leaderboard: " + (err.message || err);
+    tbody.innerHTML = `<tr><td colspan="4" style="color:#900">Failed to load leaderboard — see console</td></tr>`;
+  }
+}
+
+function formatDate(isoOrDate) {
+  if (!isoOrDate) return "";
+  const d = new Date(isoOrDate);
+  if (isNaN(d)) return isoOrDate;
+  // show in ISO-like format (UTC)
+  return d.toISOString().replace('T', ' ').replace('Z', ' UTC');
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/[&<>"']/g, function(m){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+  });
+}
+
+document.getElementById('refreshBtn').addEventListener('click', fetchLeaderboard);
+limitSelect.addEventListener('change', fetchLeaderboard);
+
+// Initial load
+fetchLeaderboard();
+
+// Optional: poll every 30s — comment out if you don't want polling
+// setInterval(fetchLeaderboard, 30000);
+</script>
+</body>
+</html>
