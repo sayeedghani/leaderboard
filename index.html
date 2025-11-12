@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f9f9f9; }
+    table { margin: 2em auto; border-collapse: collapse; width: 300px; }
+    th, td { padding: 8px 12px; border: 1px solid #ccc; }
+    th { background: #eee; }
+  </style>
+</head>
+<body>
+  <h1>🏆 Leaderboard</h1>
+  <table id="leaderboard">
+    <tr><th>Name</th><th>Score</th></tr>
+  </table>
+
+  <script>
+    const sheetURL = 'https://script.google.com/macros/s/YOUR_WEB_APP_ID/exec';
+
+    fetch(sheetURL)
+      .then(res => res.json())
+      .then(data => {
+        const table = document.getElementById('leaderboard');
+        data.forEach(entry => {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${entry.name}</td><td>${entry.score}</td>`;
+          table.appendChild(row);
+        });
+      })
+      .catch(err => console.error('Error loading data:', err));
+  </script>
+</body>
+</html>
